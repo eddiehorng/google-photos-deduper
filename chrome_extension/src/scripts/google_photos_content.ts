@@ -50,14 +50,19 @@ function handleDeletePhoto(
       return;
     }
 
+    await new Promise(r=>setTimeout(r, 1000));
+
+    let buttons;
+    let confirmButton;
     try {
-      const confirmButton = await waitForElement("[jsshadow] [autofocus]");
+       buttons = await waitForElementAll("[jsshadow] button");
+       confirmButton=Array.from(buttons).find(btn=>btn.textContent?.trim()==="Move to trash") as HTMLElement;
       confirmButton.click();
     } catch (error) {
       chrome.runtime.sendMessage({
         ...resultMessage,
         success: false,
-        error: "Confirm button not found",
+        error: `Confirm button not found ${buttons!.length} ${confirmButton}`,
       });
       return;
     }
@@ -119,4 +124,44 @@ function waitForElement(
   return Promise.race([findElementPromise, timeoutPromise]).finally(() =>
     clearTimeout(timerId)
   ) as Promise<HTMLElement>;
+}
+
+
+function waitForElementAll(
+  selector: string,
+  timeout: number = 10_000
+): Promise<NodeListOf<Element>> {
+  const findElementPromise = new Promise<NodeListOf<Element>>((resolve) => {
+    if (document.querySelectorAll(selector)) {
+      return resolve(document.querySelectorAll(selector));
+    }
+
+    const observer = new MutationObserver((_mutations) => {
+      if (document.querySelectorAll(selector)) {
+        resolve(document.querySelectorAll(selector));
+        observer.disconnect();
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  });
+
+  let timerId: number | undefined;
+  const timeoutPromise = new Promise(
+    (_resolve, reject) =>
+      (timerId = setTimeout(
+        () =>
+          reject(
+            `Timeout: selector \`${selector}\` not found after ${timeout}ms`
+          ),
+        timeout
+      ))
+  );
+
+  return Promise.race([findElementPromise, timeoutPromise]).finally(() =>
+    clearTimeout(timerId)
+  ) as Promise<NodeListOf<Element>>;
 }
