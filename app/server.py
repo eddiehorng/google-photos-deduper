@@ -186,7 +186,7 @@ def media_item_for_display(media_item):
             media_item["storageFilename"],
         )
     except KeyError:
-        image_url= ''
+        image_url= 'config.PUBLIC_IMAGE_FOLDER'
     m["imageUrl"] = image_url
 
     m["dimensions"] = " x ".join(

@@ -1,4 +1,4 @@
-import logging, time
+import logging, time, collections
 from app.lib.media_items_image_store import MediaItemsImageStore
 from app import config
 
@@ -19,21 +19,26 @@ class DuplicateFilenameDetector:
         groups = []
         start = time.perf_counter()
         # Convert these into a dict of dict[image_id1][image_id2] = score
+        hash_dict = collections.defaultdict(list)
         for idx, m in enumerate(self.media_items):
             m = self.media_items[idx]
-            # self.logger.info(f"calculate_similarity_map: {m}")
-            s, g = self.find_same_filename(m)
-            similarity_map[m['id']] = s
-            if s:
-                g.append(idx)
-                groups.append(g)
+            key = m['filename']+m['mediaMetadata']['creationTime']
+            hash_dict[key].append(idx)
 
             if idx%100==0:
                 self.logger.info(f"processed {idx}: {idx*100/len(self.media_items):.1f}%")
+        
+        for idx_list in hash_dict.values():
+            if len(idx_list) > 1:
+                similarity_map[self.media_items[idx_list[0]]['id']] = dict()
+                for i in idx_list[1:]:
+                    similarity_map[self.media_items[idx_list[0]]['id']][self.media_items[i]['id']] = 1
+
 
         self.logger.info(
             f"Calculated similarity map in {(time.perf_counter() - start):.2f} seconds"
-        )            
+        )  
+        groups = filter(lambda x: len(x)>1, hash_dict.values())          
         groups = sorted(groups, key=lambda x: len(x), reverse=True)        
         return similarity_map, groups 
 
