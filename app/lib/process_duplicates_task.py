@@ -6,6 +6,7 @@ from typing import Literal
 import celery.result
 import requests
 import app.config
+from app.lib.duplicate_filename_detector import DuplicateFilenameDetector
 from app.lib.duplicate_image_detector import DuplicateImageDetector
 from app.lib.google_photos_client import GooglePhotosClient
 from app import CELERY_APP as celery_app
@@ -93,6 +94,7 @@ class ProcessDuplicatesTask:
 
         media_items_count = client.local_media_items_count()
         self.complete_step(Steps.FETCH_MEDIA_ITEMS, count=media_items_count)
+        
         self.start_step(Steps.PROCESS_DUPLICATES)
 
         self.logger.info(
@@ -105,13 +107,22 @@ class ProcessDuplicatesTask:
         #   is not a good enough indicator of similarity;
         media_items = list(filter(lambda m: "photo" in m["mediaMetadata"], media_items))
 
-        duplicate_detector = DuplicateImageDetector(
-            media_items,
-            logger=self.logger,
-            threshold=self.similarity_threshold,
-        )
-        similarity_map = duplicate_detector.calculate_similarity_map()
-        groups = duplicate_detector.calculate_groups()
+        compare='filename'
+        if compare=='filename':
+            duplicate_detector = DuplicateFilenameDetector(
+                media_items,
+                logger=self.logger)   
+            similarity_map, groups = duplicate_detector.calculate_similarity_map()
+        else:  
+            duplicate_detector = DuplicateImageDetector(
+                media_items,
+                logger=self.logger,
+                threshold=self.similarity_threshold,
+            )
+        
+            similarity_map = duplicate_detector.calculate_similarity_map()
+            groups = duplicate_detector.calculate_groups()
+
 
         result = {
             "similarityMap": similarity_map,

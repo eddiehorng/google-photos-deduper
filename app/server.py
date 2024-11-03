@@ -180,10 +180,13 @@ def media_item_for_display(media_item):
         )
     }
 
-    image_url = urllib.parse.urljoin(
-        config.PUBLIC_IMAGE_FOLDER,
-        media_item["storageFilename"],
-    )
+    try:
+        image_url = urllib.parse.urljoin(
+            config.PUBLIC_IMAGE_FOLDER,
+            media_item["storageFilename"],
+        )
+    except KeyError:
+        image_url= ''
     m["imageUrl"] = image_url
 
     m["dimensions"] = " x ".join(

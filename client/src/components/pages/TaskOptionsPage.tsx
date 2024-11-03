@@ -78,6 +78,7 @@ export default function TaskOptionsPage() {
                 control={control}
                 render={({ field }) => (
                   <Checkbox
+                    defaultChecked={false}
                     onChange={(e) => field.onChange(e.target.checked)}
                     checked={field.value}
                   />
