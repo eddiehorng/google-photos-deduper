@@ -2,6 +2,7 @@ import copy
 import datetime
 import logging
 import time
+import collections
 from typing import Literal
 import celery.result
 import requests
@@ -90,6 +91,24 @@ class ProcessDuplicatesTask:
             # Create mongo indexes if they haven't been created yet
             MediaItemsRepository.create_indexes()
             self._fetch_media_items(client)
+
+        # do once: set current media items interested
+        # media_items = list(client.get_local_media_items())
+        # for m in media_items:
+        #     ret = client.repo.update(m['id'], {"interested": True})
+        #     self.logger.info(f"update {m['id']} => {ret}")
+
+        if app.config.REMOVE_SOLO_CREATTION_TIME:
+            self.remove_solo_creation_time(client)
+            media_items_count = client.local_media_items_count()
+            # fetch photos
+            media_items = list(client.get_local_media_items())
+            self.fetched_media_item_ids = []
+            for m in media_items:
+                if 'storageFilename' not in m:
+                    self.fetched_media_item_ids.append(m['id'])
+            to_fetch_count = len(self.fetched_media_item_ids)
+            self._postprocess_fetched_media_items()
             self._await_subtask_completion()
 
         media_items_count = client.local_media_items_count()
@@ -107,8 +126,7 @@ class ProcessDuplicatesTask:
         #   is not a good enough indicator of similarity;
         media_items = list(filter(lambda m: "photo" in m["mediaMetadata"], media_items))
 
-        compare='filename'
-        if compare=='filename':
+        if app.config.COMPARE_BY_FILENAME:
             duplicate_detector = DuplicateFilenameDetector(
                 media_items,
                 logger=self.logger)   
@@ -211,6 +229,7 @@ class ProcessDuplicatesTask:
 
     def _postprocess_fetched_media_items(self):
         media_item_ids = self.fetched_media_item_ids
+        # filter id for interested and no 
         if len(media_item_ids) == 0:
             return
 
@@ -271,3 +290,15 @@ class ProcessDuplicatesTask:
                 )
                 self.logger.info(message)
                 time.sleep(app.config.PROCESS_DUPLICATE_SUBTASK_POLL_INTERVAL)
+
+    def remove_solo_creation_time(self, client: GooglePhotosClient):
+        media_items = list(client.get_local_media_items())
+        dedup_dict = collections.defaultdict(list)
+        for m in media_items:
+            dedup_dict[m['mediaMetadata']['creationTime']].append(m['id'])
+        to_removed_ids = []
+        for m_id_list in dedup_dict.values():
+            if len(m_id_list) == 1:
+                to_removed_ids.extend(m_id_list)
+        r=len(to_removed_ids)
+        client.repo.delete(to_removed_ids)

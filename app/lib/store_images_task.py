@@ -1,10 +1,10 @@
-import logging
+import logging, os
 import time
 from typing import Optional
 
 from app.lib.media_items_image_store import MediaItemsImageStore
 from app.models.media_items_repository import MediaItemsRepository
-
+import app.config
 
 class StoreImagesTask:
     def __init__(
@@ -35,10 +35,18 @@ class StoreImagesTask:
 
         for media_item_id in self.media_item_ids:
             media_item = media_item_id_map[media_item_id]
+            do_fetch = False
+            if "interested" in media_item and media_item["interested"]:
+                do_fetch = True
+                self.logger.info(f"find interested {media_item['id']}")
+
+            if "storageFilename" in media_item:
+                if os.path.exists(self.image_store.get_storage_path(media_item["storageFilename"])):
+                    self.logger.info(f"skip photo in storage {media_item['id']}")
+                    do_fetch = False
 
             # skip fetch media item
-            fetch=False
-            if fetch:
+            if do_fetch and app.config.FETCH_PHOTO:
                 try:
                     storage_filename = self.image_store.store_image(media_item)
                     self.repo.update(media_item_id, {"storageFilename": storage_filename})
@@ -53,7 +61,8 @@ class StoreImagesTask:
                         f"Received {error} storing image, deleting mediaItem\n"
                         f"media_item: {media_item}\n"
                     )
-                    self.repo.delete([media_item_id])
+                    # not delete it
+                    #self.repo.delete([media_item_id])
             
             num_completed += 1
 

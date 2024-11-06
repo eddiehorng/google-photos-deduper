@@ -34,9 +34,9 @@ export default function TaskOptionsPage() {
   } = useForm<FormData>({
     mode: "onChange",
     defaultValues: {
-      refresh_media_items: true,
+      refresh_media_items: false,
       resolution: "250",
-      similarity_threshold: "99.00",
+      similarity_threshold: "99.99",
     },
   });
   const [isSubmitting, setIsSubmitting] = useState(false);

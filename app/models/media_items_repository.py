@@ -26,6 +26,7 @@ class MediaItemsRepository:
         "deletedAt",  # When the media item was deleted by our app
         "userUrl",  # User-facing URL of the media item. productUrl is generated for our app and eventually expires.
         "fetchedAt",  # Datetime representing when the media item was fetched from Google Photos
+        "interested", # only fetch photos for interested
     ]
 
     @classmethod
